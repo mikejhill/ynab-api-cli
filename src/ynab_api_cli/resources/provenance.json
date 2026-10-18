@@ -1,0 +1,9 @@
+{
+  "source_url": "https://api.ynab.com/papi/open_api_spec.yaml",
+  "retrieved_at": "2026-10-11T21:49:17.970572+00:00",
+  "spec_sha256": "69411d596ee4b6f79720615038ac9cdfea43875013ca9d0e5d235ba505ebf26f",
+  "api_version": "1.87.0",
+  "generator": "openapi-python-client",
+  "generator_version": "0.29.0",
+  "operation_count": 44
+}

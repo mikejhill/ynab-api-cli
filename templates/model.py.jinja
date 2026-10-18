@@ -1,0 +1,40 @@
+"""Generated contract model; regenerate rather than editing."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic import TypeAdapter, model_validator
+from ynab_api_cli.types import UNSET, Unset
+{% for relative in model.relative_imports | sort %}
+{{ relative }}
+{% endfor %}
+{% if model.lazy_imports %}
+if TYPE_CHECKING:
+{% for lazy in model.lazy_imports | sort %}
+    {{ lazy }}
+{% endfor %}
+{% endif %}
+
+class {{ model.class_info.name }}(BaseModel):
+    """Typed {{ model.class_info.name }} contract representation."""
+    model_config = ConfigDict(extra="{{ 'allow' if model.additional_properties else 'forbid' }}", arbitrary_types_allowed=True, populate_by_name=True)
+{% if model.additional_properties and model.additional_properties != True and model.additional_properties.get_type_string() != "Any" %}
+    @model_validator(mode="before")
+    @classmethod
+    def validate_extra_values(cls, value: object) -> object:
+        """Validate typed map entries before the Pydantic model boundary."""
+        if not isinstance(value, dict):
+            return value
+        declared = {field.alias or name for name, field in cls.model_fields.items()}
+        extra = {str(key): item for key, item in value.items() if str(key) not in declared}
+        TypeAdapter[dict[str, {{ model.additional_properties.get_type_string() }}]](dict[str, {{ model.additional_properties.get_type_string() }}]).validate_python(extra)
+        return value
+
+    @property
+    def additional_properties(self) -> dict[str, {{ model.additional_properties.get_type_string() }}]:
+        """Return additional entries through a validated typed boundary."""
+        return TypeAdapter[dict[str, {{ model.additional_properties.get_type_string() }}]](dict[str, {{ model.additional_properties.get_type_string() }}]).validate_python(self.model_extra or {})
+{% endif %}
+{% for property in model.required_properties + model.optional_properties %}
+    {{ property.python_name }}: {{ property.get_type_string() }} = Field(alias="{{ property.name }}"{% if not property.required %}, default=UNSET{% elif property.default is not none %}, default={{ property.default }}{% endif %})
+{% endfor %}

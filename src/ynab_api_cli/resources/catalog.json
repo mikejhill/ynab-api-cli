@@ -1,0 +1,178 @@
+{
+  "getUser": {
+    "method": "GET",
+    "path": "/user"
+  },
+  "getPlans": {
+    "method": "GET",
+    "path": "/plans"
+  },
+  "getPlanById": {
+    "method": "GET",
+    "path": "/plans/{plan_id}"
+  },
+  "getPlanSettingsById": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/settings"
+  },
+  "getAccounts": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/accounts"
+  },
+  "createAccount": {
+    "method": "POST",
+    "path": "/plans/{plan_id}/accounts"
+  },
+  "getAccountById": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/accounts/{account_id}"
+  },
+  "getCategories": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/categories"
+  },
+  "createCategory": {
+    "method": "POST",
+    "path": "/plans/{plan_id}/categories"
+  },
+  "getCategoryById": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/categories/{category_id}"
+  },
+  "updateCategory": {
+    "method": "PATCH",
+    "path": "/plans/{plan_id}/categories/{category_id}"
+  },
+  "getMonthCategoryById": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/months/{month}/categories/{category_id}"
+  },
+  "updateMonthCategory": {
+    "method": "PATCH",
+    "path": "/plans/{plan_id}/months/{month}/categories/{category_id}"
+  },
+  "createCategoryGroup": {
+    "method": "POST",
+    "path": "/plans/{plan_id}/category_groups"
+  },
+  "updateCategoryGroup": {
+    "method": "PATCH",
+    "path": "/plans/{plan_id}/category_groups/{category_group_id}"
+  },
+  "getPayees": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/payees"
+  },
+  "createPayee": {
+    "method": "POST",
+    "path": "/plans/{plan_id}/payees"
+  },
+  "getPayeeById": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/payees/{payee_id}"
+  },
+  "updatePayee": {
+    "method": "PATCH",
+    "path": "/plans/{plan_id}/payees/{payee_id}"
+  },
+  "getPayeeLocations": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/payee_locations"
+  },
+  "getPayeeLocationById": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/payee_locations/{payee_location_id}"
+  },
+  "getPayeeLocationsByPayee": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/payees/{payee_id}/payee_locations"
+  },
+  "getPlanMonths": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/months"
+  },
+  "getPlanMonth": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/months/{month}"
+  },
+  "getMoneyMovements": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/money_movements"
+  },
+  "getMoneyMovementsByMonth": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/months/{month}/money_movements"
+  },
+  "getMoneyMovementGroups": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/money_movement_groups"
+  },
+  "getMoneyMovementGroupsByMonth": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/months/{month}/money_movement_groups"
+  },
+  "getTransactions": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/transactions"
+  },
+  "createTransaction": {
+    "method": "POST",
+    "path": "/plans/{plan_id}/transactions"
+  },
+  "updateTransactions": {
+    "method": "PATCH",
+    "path": "/plans/{plan_id}/transactions"
+  },
+  "importTransactions": {
+    "method": "POST",
+    "path": "/plans/{plan_id}/transactions/import"
+  },
+  "getTransactionById": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/transactions/{transaction_id}"
+  },
+  "updateTransaction": {
+    "method": "PUT",
+    "path": "/plans/{plan_id}/transactions/{transaction_id}"
+  },
+  "deleteTransaction": {
+    "method": "DELETE",
+    "path": "/plans/{plan_id}/transactions/{transaction_id}"
+  },
+  "getTransactionsByAccount": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/accounts/{account_id}/transactions"
+  },
+  "getTransactionsByCategory": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/categories/{category_id}/transactions"
+  },
+  "getTransactionsByPayee": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/payees/{payee_id}/transactions"
+  },
+  "getTransactionsByMonth": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/months/{month}/transactions"
+  },
+  "getScheduledTransactions": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/scheduled_transactions"
+  },
+  "createScheduledTransaction": {
+    "method": "POST",
+    "path": "/plans/{plan_id}/scheduled_transactions"
+  },
+  "getScheduledTransactionById": {
+    "method": "GET",
+    "path": "/plans/{plan_id}/scheduled_transactions/{scheduled_transaction_id}"
+  },
+  "updateScheduledTransaction": {
+    "method": "PUT",
+    "path": "/plans/{plan_id}/scheduled_transactions/{scheduled_transaction_id}"
+  },
+  "deleteScheduledTransaction": {
+    "method": "DELETE",
+    "path": "/plans/{plan_id}/scheduled_transactions/{scheduled_transaction_id}"
+  }
+}

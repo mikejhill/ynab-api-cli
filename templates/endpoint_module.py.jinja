@@ -1,0 +1,53 @@
+"""Generated typed REST endpoint; regenerate rather than editing."""
+from __future__ import annotations
+
+from pydantic import TypeAdapter
+from http import HTTPStatus
+from ynab_api_cli.types import UNSET, Unset, Response, RequestValues
+from ynab_api_cli.transport import Transport
+{% for relative in endpoint.relative_imports | sort %}
+{{ relative }}
+{% endfor %}
+
+class Endpoint:
+    """Typed {{ endpoint.name }} operation."""
+
+    @classmethod
+    def execute(  # noqa: PLR0913 - preserve the endpoint contract.
+        cls, *, transport: Transport,
+{% for parameter in endpoint.path_parameters + endpoint.query_parameters %}
+        {{ parameter.python_name }}: {{ parameter.get_type_string() }}{% if not parameter.required %} = UNSET{% endif %},
+{% endfor %}
+{% for body in endpoint.bodies %}
+        body: {{ body.prop.get_type_string() }},
+{% endfor %}
+    ) -> Response[{{ endpoint.response_type() }}]:
+        """Execute the typed request and retain its original response JSON."""
+        raw = transport.send("{{ endpoint.name }}", RequestValues(
+            path={ {% for parameter in endpoint.path_parameters %}"{{ parameter.name }}": {{ parameter.python_name }},{% endfor %} },
+            query={ {% for parameter in endpoint.query_parameters %}"{{ parameter.name }}": {{ parameter.python_name }},{% endfor %} },
+            body={% if endpoint.bodies %}body{% else %}UNSET{% endif %},
+        ))
+{% for response in endpoint.responses.patterns %}
+{% if response.status_code.range[0] < 300 %}
+        if raw.status == HTTPStatus.{{ 'OK' if response.status_code.range[0] == 200 else 'CREATED' }}:
+            parsed = {{ response.prop.get_type_string() }}.model_validate(raw.raw)
+            return Response(raw.status, raw.raw, raw.headers, parsed)
+{% endif %}
+{% endfor %}
+        raise ValueError("Validated response has no generated success binding.")
+
+    @classmethod
+    def dispatch(cls, transport: Transport, {{ 'request' if endpoint.path_parameters or endpoint.query_parameters or endpoint.bodies else '_request' }}: RequestValues) -> Response[{{ endpoint.response_type() }}]:
+        """Convert validated CLI inputs and call the explicitly typed method."""
+        return cls.execute(transport=transport,
+{% for parameter in endpoint.path_parameters %}
+            {{ parameter.python_name }}=request.value("path", "{{ parameter.name }}", TypeAdapter[{{ parameter.get_type_string() }}]({{ parameter.get_type_string() }})),
+{% endfor %}
+{% for parameter in endpoint.query_parameters %}
+            {{ parameter.python_name }}=request.value("query", "{{ parameter.name }}", TypeAdapter[{{ parameter.get_type_string() }}]({{ parameter.get_type_string() }})),
+{% endfor %}
+{% for body in endpoint.bodies %}
+            body=TypeAdapter[{{ body.prop.get_type_string() }}]({{ body.prop.get_type_string() }}).validate_python(request.body),
+{% endfor %}
+        )
