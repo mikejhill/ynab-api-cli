@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import getpass
+import io
 import json
 import logging
 import shutil
@@ -38,6 +39,8 @@ class Application:
     @classmethod
     def main(cls, argv: Sequence[str] | None = None) -> None:
         """Run the console entry point and return its documented exit status."""
+        if isinstance(sys.stdout, io.TextIOWrapper):
+            sys.stdout.reconfigure(encoding="utf-8")
         sys.exit(cls().run(argv))
 
     def run(self, argv: Sequence[str] | None = None) -> int:

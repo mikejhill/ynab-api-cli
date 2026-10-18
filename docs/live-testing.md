@@ -25,3 +25,11 @@ Before each mutation, the runner writes a private intent journal. An uncertain o
 Payee-location reads require location fixtures. Direct Import needs a linked bank account; manual test accounts cannot verify actual bank imports. The report lists these gaps and never claims full live coverage when they remain.
 
 No live account connection is provisioned by installing this project. Supply credentials and a designated plan explicitly to run these tests.
+
+## Verified live run, 2026-10-18
+
+An explicitly designated disposable plan passed the real read/write lifecycle run: 43 of 44 operations completed. The run covered accounts, categories, payees, transaction creation and bulk updates, duplicate import IDs, splits, transfers, scheduled transactions, budgeting, and deletion checks. The missing operation was `getPayeeLocationById` because no suitable location fixture existed. The import endpoint completed, but actual bank import remains unverified for manual accounts.
+
+Subsequent reads confirmed that both fixture account balances returned to zero, and the private journal had no unresolved mutation. Reusable accounts, category group, category, and payee remain in the disposable plan. No token, plan UUID, account data, or response bodies are included in this report.
+
+The proposed CI-specific read-only probe also passed 15 selected-plan operations against that plan. See [secure live CI](live-ci.md) before putting credentials on a remote runner. These results do not claim full live coverage.
