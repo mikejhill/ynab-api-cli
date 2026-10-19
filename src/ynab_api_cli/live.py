@@ -30,6 +30,7 @@ class LiveOptions:
     auth_file: Path
     state_directory: Path
     enable_writes: bool
+    account_reads: bool = True
 
 
 class LiveRunner:
@@ -404,6 +405,12 @@ class LiveRunner:
         """Run every read whose fixture prerequisites are available."""
         for operation in self.contract.operations.values():
             if operation.write or operation.identifier in self.completed:
+                continue
+            if not self.options.account_reads and operation.identifier in {
+                "getPlans",
+                "getUser",
+            }:
+                self.gaps.append(operation.identifier + ": account-wide read excluded")
                 continue
             required = {
                 str(param["name"])

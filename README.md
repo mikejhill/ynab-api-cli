@@ -59,6 +59,8 @@ The contract snapshot, reviewed operation catalog, and provenance are packaged r
 
 See [maintenance](docs/maintenance.md) for reviewed upgrades, test coverage, and CI. See [live testing](docs/live-testing.md) before enabling writes against a dedicated test plan.
 
+See [secure live CI](docs/live-ci.md) for the separate, manually approved read-only workflow. Ordinary CI requires no YNAB credentials. No local token is uploaded automatically.
+
 ## Supplementary Codex skill
 
 ```text

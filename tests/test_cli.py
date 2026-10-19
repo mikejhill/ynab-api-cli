@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -21,6 +24,28 @@ from ynab_api_cli.transport import Transport
 
 class TestApplication:
     """Exercise the public process behavior with isolated settings and HTTP."""
+
+    def test_utf8_redirected_output(self, tmp_path: Path) -> None:
+        """A real CLI subprocess emits Unicode JSON through a legacy-encoded pipe."""
+        xdg = tmp_path / "home-\U0001f3e0"
+        store = ConfigStore(xdg / "ynab-api-cli")
+        store.configure("synthetic-subprocess-credential")
+        environment = dict(os.environ)
+        environment.update({"XDG_CONFIG_HOME": str(xdg), "PYTHONIOENCODING": "cp1252"})
+
+        result = subprocess.run(
+            [sys.executable, "-m", "ynab_api_cli", "doctor", "--offline"],
+            cwd=tmp_path,
+            env=environment,
+            capture_output=True,
+            check=False,
+        )
+
+        assert result.returncode == 0
+        report = json.loads(result.stdout.decode("utf-8"))
+        assert report["ok"] is True
+        assert report["api_checked"] is False
+        assert report["directory"] == str(store.root)
 
     @pytest.mark.parametrize(
         "argv",
