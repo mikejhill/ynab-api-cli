@@ -1,4 +1,4 @@
-name: Read-only live YNAB tests
+name: Seeded read-only YNAB CLI acceptance
 
 # Environment secrets must be configured by the repository owner separately.
 on:
@@ -25,10 +25,14 @@ jobs:
         with:
           enable-cache: false
       - name: Install reviewed locked dependencies without YNAB secrets
-        run: uv sync --locked --no-editable
-      - name: Run read-only probes with step-scoped secrets
+        run: |
+          uv build --wheel
+          uv sync --locked --no-install-project
+          uv pip install --no-deps dist/*.whl
+      - name: Run required seeded assertions with step-scoped secrets
         env:
           YNAB_ACCESS_TOKEN: ${{ secrets.YNAB_ACCESS_TOKEN }}
+          YNAB_ACCESS_TOKENS: ${{ secrets.YNAB_ACCESS_TOKENS }}
           YNAB_TEST_PLAN_ID: ${{ secrets.YNAB_TEST_PLAN_ID }}
         run: |
           ulimit -c 0

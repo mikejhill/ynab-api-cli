@@ -11,10 +11,10 @@ Use `ynab-api-cli`, the REST-only CLI distributed with this skill. YNAB calls bu
 - On first use in a session, run `doctor`. If configuration is missing, read [references/setup.md](references/setup.md) and give the user the hidden local token-prompt command. Never request a token in chat.
 - `discover`, `discover GROUP`, and `inspect OPERATION_ID` require no connection and make no API requests. Inspect only the operation needed; its output includes only reachable schemas.
 - Use resource commands for ordinary operations or `call OPERATION_ID --request @file` for a JSON envelope containing `path`, `query`, and optional `body`.
-- Prefer explicit UUIDs. A configured default plan is supplied only when plan_id is omitted. Resolve duplicate names through IDs; never infer selection from list position.
+- Prefer explicit UUIDs. A configured default plan is supplied only when plan_id is omitted; resource commands accept --plan UUID or --plan-id UUID. Resolve duplicate names through IDs; never infer selection from list position.
 - Read [references/operations.md](references/operations.md) for milliunits, request examples, delta responses, splits, and transfers.
 - Read affected records before an authorized change. Writes preview by default; review target IDs and the exact payload, then use `--execute` within the user's authorization. Existing authorization is sufficient.
-- Verify submitted changes through subsequent reads. After ambiguous failures, inspect state before retrying; the CLI never retries automatically.
+- Verify submitted changes through subsequent reads. After ambiguous failures, inspect state before retrying; only an explicit HTTP 429 permits bounded rollover to another configured PAT. Other failures stop immediately.
 - `compat check` reports upstream contract drift. It does not change the installed CLI or grant permission to adopt new operations.
 - Output is JSON; errors go to stderr. Report exact records and any incomplete verification.
 

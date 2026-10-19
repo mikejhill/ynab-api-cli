@@ -32,3 +32,13 @@ Renamed the package, executable, skill, and configuration directory to `ynab-api
 - Source/history and extracted artifact privacy checks: completed; see [privacy review](privacy-review.md).
 
 These automated results do not resolve the manual design findings documented in [the Python development review](python-development-review.md). No live YNAB account was accessed.
+
+## Fixture acceptance and PAT pools, 2026-10-18
+
+The versioned v1 baseline passed all 33 required real-account read assertions in the explicitly designated disposable plan. The installed-wheel write lifecycle passed 55 distinct assertions across 93 HTTP requests, including duplicate import IDs, fractional milliunits, null/omitted updates, bulk updates, splits, linked transfers, schedules, budgeting, delta tombstones, and cleanup. Subsequent baseline assertions passed, and the private journal had no pending intent or active-run marker. The ordinary default plan was not changed.
+
+Baseline seeding revealed automatic zero Starting Balance records and aggregate currency-precision rounding. The fixture contract now recognizes that exact zero opening record and uses whole-currency baseline amounts; separate mutation readbacks still verify fractional milliunits. These adjustments do not relax OpenAPI validation or normalize API response bodies.
+
+The deterministic suite now includes 220 tests. `poe check` enforces the existing combined coverage gate and a separate minimum of 90% authored branch coverage. Generation, operation/schema-feature coverage, upstream compatibility, skill validation, and clean-install distribution checks remain separate release gates. Direct bank import and payee-location prerequisites remain live coverage gaps, and account-wide reads are excluded from these suites.
+
+Read-only GitHub acceptance now requires the seeded baseline and installs the built wheel. Multi-PAT secrets are optional and entered manually by the owner; this implementation did not upload local credentials. Mutation suites remain local because safe recovery requires durable private journals.

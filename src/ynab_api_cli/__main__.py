@@ -20,7 +20,7 @@ from ynab_api_cli.config import ConfigStore
 from ynab_api_cli.contract import Contract
 from ynab_api_cli.exceptions import AppError
 from ynab_api_cli.generated.bindings import Bindings
-from ynab_api_cli.transport import Transport
+from ynab_api_cli.transport import Connection, Transport
 from ynab_api_cli.types import JsonCodec, JsonValue, RequestValues
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class Application:
     def __init__(
         self, store: ConfigStore | None = None, transport: Transport | None = None
     ) -> None:
-        self.contract = Contract()
+        self.contract = transport.contract if transport is not None else Contract()
         self.store = store
         self.transport = transport
 
@@ -122,6 +122,8 @@ class Application:
                 "status": response.status,
                 "headers": JsonCodec.encode(response.headers),
                 "contract_version": self.contract.version,
+                "request_count": transport.request_count,
+                "pat_index": transport.active_token_index,
                 "body": response.raw,
             }
         return response.raw
@@ -172,6 +174,7 @@ class Application:
         store.configure(
             getpass.getpass("YNAB personal access token (hidden): "),
             replace=command.replace,
+            add=command.add,
         )
         return {"configured": True, "directory": str(store.root)}
 
@@ -180,13 +183,20 @@ class Application:
     ) -> dict[str, JsonValue]:
         """Validate API access separately from offline configuration checks."""
         if not command.offline:
-            Bindings.operations["get_user"](transport, RequestValues())
-            if transport.connection.plan_id is not None:
-                Bindings.operations["get_plan_by_id"](
-                    transport, RequestValues({"plan_id": transport.connection.plan_id})
+            for token in transport.connection.tokens:
+                probe = Transport(
+                    Connection(token, transport.connection.plan_id),
+                    self.contract,
+                    transport.client,
                 )
+                Bindings.operations["get_user"](probe, RequestValues())
+                if transport.connection.plan_id is not None:
+                    Bindings.operations["get_plan_by_id"](
+                        probe, RequestValues({"plan_id": transport.connection.plan_id})
+                    )
         output: dict[str, JsonValue] = {
             "ok": True,
+            "pat_count": len(transport.connection.tokens),
             "api_checked": not command.offline,
             "directory": str(store.root),
             "plan_id": transport.connection.plan_id,

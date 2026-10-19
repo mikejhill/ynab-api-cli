@@ -25,19 +25,23 @@ ynab-api-cli call getTransactions --request @request.json
 
 Uniform requests use `{"path":{},"query":{},"body":{}}`; omit body for operations without one. `--request -` and `--body -` read stdin. Endpoint flags use kebab-case names. Boolean flags take `true` or `false`.
 
-Writes preview by default. Add `--execute` only for an intended mutation and verify its result through reads. Requests use TLS, a 30-second timeout, and no automatic retries or redirects. An uncertain write must be reconciled before retrying. Amounts are integer milliunits, and explicit null differs from omission.
+Writes preview by default. Add `--execute` only for an intended mutation and verify its result through reads. Requests use TLS and a 30-second timeout; only explicit HTTP 429 responses permit bounded replay with another PAT. Redirects and other failures are never retried. An uncertain write must be reconciled before retrying. Amounts are integer milliunits, and explicit null differs from omission.
 
-`--metadata` adds status, selected headers, and contract version. Exit codes: 0 success, 1 configuration/API/compatibility failure, 2 usage error, and 130 interruption. `doctor --offline` does not validate API access. `configure --replace` explicitly rotates credentials while preserving unrelated fields.
+`--metadata` adds status, selected headers, and contract version. Exit codes: 0 success, 1 configuration/API/compatibility failure, 2 usage error, and 130 interruption. `doctor --offline` does not validate API access. `configure --add` appends hidden PAT input; `configure --replace` replaces the entire pool while preserving unrelated settings. Only HTTP 429 triggers bounded rollover to another PAT; other failures stop immediately. Online doctor validates every configured PAT. See [PAT pools](docs/pat-pools.md).
 
 ## Typed Python interface
 
-```python
-from ynab_api_cli.generated.api.transactions.get_transactions import Endpoint
+```pythonfrom ynab_api_cli.generated.api.transactions.get_transactions import Endpoint
+
 from ynab_api_cli.transport import Connection, Transport
 
+
 # Load protected credentials through ConfigStore in real applications.
+
 response = Endpoint.execute(transport=Transport(Connection(token)), plan_id=plan_id)
+
 raw_json = response.raw
+
 typed_result = response.parsed
 ```
 
@@ -75,3 +79,5 @@ For a source checkout, install with `uv tool install .` or run commands with `uv
 ## Releases
 
 The publishing pipeline follows VerdiClip's release-please and PyPI trusted-publishing pattern. See [publishing](docs/publishing.md) for the initial project setup, release process, and TestPyPI option.
+
+Use [fixture-based E2E acceptance](docs/e2e.md) for meaningful real-account verification: explicit local seeding, required read assertions through CLI subprocesses, and an opt-in journaled mutation lifecycle. [Protected live CI](docs/live-ci.md) installs the built wheel and runs seeded read assertions, with single or multiple encrypted PATs. Empty plans fail.

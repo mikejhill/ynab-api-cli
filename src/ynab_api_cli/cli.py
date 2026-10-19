@@ -25,6 +25,7 @@ class Command:
     offline: bool
     upstream: bool
     replace: bool
+    add: bool
     log_level: str
 
 
@@ -46,7 +47,13 @@ class CommandLine:
         configure = sub.add_parser(
             "configure", help="Prompt locally for protected credentials"
         )
-        configure.add_argument("--replace", action="store_true")
+        credentials = configure.add_mutually_exclusive_group()
+        credentials.add_argument(
+            "--replace", action="store_true", help="Replace the entire PAT pool"
+        )
+        credentials.add_argument(
+            "--add", action="store_true", help="Append a PAT through hidden input"
+        )
         doctor = sub.add_parser(
             "doctor", help="Validate local settings and read-only API access"
         )
@@ -94,7 +101,11 @@ class CommandLine:
             endpoint.set_defaults(operation=operation.identifier)
             for parameter in self.contract.parameters(operation):
                 endpoint.add_argument(
-                    "--" + str(parameter["name"]).replace("_", "-"),
+                    *(
+                        ["--plan-id", "--plan"]
+                        if parameter["name"] == "plan_id"
+                        else ["--" + str(parameter["name"]).replace("_", "-")]
+                    ),
                     dest="argument_" + str(parameter["name"]),
                     required=bool(parameter.get("required"))
                     and parameter["name"] != "plan_id",
@@ -153,6 +164,7 @@ class CommandLine:
             bool(getattr(args, "offline", False)),
             bool(getattr(args, "upstream", False)),
             bool(getattr(args, "replace", False)),
+            bool(getattr(args, "add", False)),
             str(args.log_level),
         )
 

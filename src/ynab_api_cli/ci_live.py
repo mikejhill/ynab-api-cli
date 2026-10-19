@@ -11,12 +11,9 @@ from collections.abc import MutableMapping
 from pathlib import Path
 from uuid import UUID
 
-import httpx
-
 from ynab_api_cli.config import ConfigStore
-from ynab_api_cli.live import LiveOptions, LiveRunner
-from ynab_api_cli.transport import Connection, Transport
-from ynab_api_cli.types import JsonValue
+from ynab_api_cli.e2e import E2eOptions, E2eRunner
+from ynab_api_cli.types import JsonCodec, JsonValue
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +22,11 @@ class Application:
     """Consume CI secrets once and expose only operation-level test results."""
 
     @classmethod
-    def main(cls, client: httpx.Client | None = None) -> None:
+    def main(cls) -> None:
         """Run the probe without emitting exception details or API payloads."""
         logging.basicConfig(level=logging.WARNING)
         try:
-            report = cls.run(os.environ, client)
+            report = cls.run(os.environ)
         except KeyboardInterrupt:
             raise SystemExit(130) from None
         except Exception:  # noqa: BLE001 - redact unexpected failures at the process boundary.
@@ -40,34 +37,28 @@ class Application:
         sys.stdout.write(json.dumps(report, indent=2) + "\n")
 
     @staticmethod
-    def run(
-        environment: MutableMapping[str, str], client: httpx.Client | None = None
-    ) -> dict[str, JsonValue]:
-        """Use explicit environment secrets and remove private files on all exits."""
+    def run(environment: MutableMapping[str, str]) -> dict[str, JsonValue]:
+        """Run required seeded acceptance using only explicit environment secrets."""
         token = environment.pop("YNAB_ACCESS_TOKEN", "")
+        pool = environment.pop("YNAB_ACCESS_TOKENS", "")
         plan = environment.pop("YNAB_TEST_PLAN_ID", "")
-        connection = Connection(token, str(UUID(plan)))
+        if token and pool:
+            raise ValueError("Configure one credential secret format, not both.")
+        values: dict[str, JsonValue] = (
+            {"access_tokens": JsonCodec.loads(pool)}
+            if pool
+            else {"access_token": token}
+        )
+        connection = ConfigStore.credentials(values, str(UUID(plan)))
+        if environment.get("GITHUB_ACTIONS") == "true":
+            for credential in connection.tokens:
+                sys.stdout.write("::add-mask::" + credential.replace("%", "%25") + "\n")
+            sys.stdout.flush()
         with tempfile.TemporaryDirectory(prefix="ynab-api-cli-live-") as temporary:
-            root = Path(temporary)
-            store = ConfigStore(root / "config")
-            store.configure(connection.token)
-            options = LiveOptions(
-                plan_id=connection.plan_id or "",
-                auth_file=store.root / "auth.json",
-                state_directory=root / "state",
-                enable_writes=False,
-                account_reads=False,
+            options = E2eOptions(
+                "reads", connection.plan_id or "", Path(temporary) / "state"
             )
-            runner = LiveRunner(options, Transport(connection, client=client))
-            result = runner.run()
-        return {
-            "ok": True,
-            "mode": "read-only",
-            "completed_operations": result["completed_operations"],
-            "missing_operations": result["missing_operations"],
-            "gaps": result["gaps"],
-            "complete_live_coverage": False,
-        }
+            return E2eRunner(options, connection).run()
 
 
 if __name__ == "__main__":
