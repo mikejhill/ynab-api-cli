@@ -16,7 +16,7 @@ from ynab_api_cli.config import ConfigStore
 from ynab_api_cli.exceptions import AppError
 from ynab_api_cli.generated.bindings import Bindings
 from ynab_api_cli.security import FileSecurity
-from ynab_api_cli.transport import Connection, Transport
+from ynab_api_cli.transport import Transport
 from ynab_api_cli.types import UNSET, JsonCodec, JsonValue, RequestValues
 
 logger = logging.getLogger(__name__)
@@ -75,24 +75,14 @@ class LiveRunner:
         logging.basicConfig(level=logging.WARNING)
         try:
             FileSecurity().validate(options.auth_file)
-            token = cls.read_token(options.auth_file)
-            runner = cls(options, Transport(Connection(token, options.plan_id)))
+            connection = ConfigStore.credentials(
+                ConfigStore.read(options.auth_file), options.plan_id
+            )
+            runner = cls(options, Transport(connection))
             sys.stdout.write(json.dumps(runner.run(), indent=2) + "\n")
         except (AppError, OSError, ValueError):
             logger.error("Live test failed; inspect its journal before retrying.")  # noqa: TRY400 - credentials and record bodies must remain private.
             raise SystemExit(1) from None
-
-    @staticmethod
-    def read_token(path: Path) -> str:
-        """Validate live credentials without using ordinary CLI defaults."""
-        token = ConfigStore.read(path).get("access_token")
-        if (
-            not isinstance(token, str)
-            or not token
-            or any(part.isspace() for part in token)
-        ):
-            raise AppError("Live auth file requires an access_token.")
-        return token
 
     def invoke(
         self,

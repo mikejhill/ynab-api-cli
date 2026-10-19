@@ -1135,6 +1135,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "coverage" },
     { name = "hypothesis" },
     { name = "openapi-python-client" },
     { name = "poethepoet" },
@@ -1156,6 +1157,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "coverage", specifier = ">=7.16.2" },
     { name = "hypothesis", specifier = ">=6.169.0" },
     { name = "openapi-python-client", specifier = "==0.29.0" },
     { name = "poethepoet", specifier = ">=0.48.0" },

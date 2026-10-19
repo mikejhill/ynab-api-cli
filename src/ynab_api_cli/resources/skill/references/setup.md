@@ -12,7 +12,7 @@
    ynab-api-cli doctor
    ```
 
-Configuration uses `$XDG_CONFIG_HOME/ynab-api-cli` or `~/.config/ynab-api-cli`, including Windows. XDG_CONFIG_HOME must be absolute. `auth.json` holds `access_token`; `config.json` holds the optional `plan_id`. Existing unrelated fields are preserved.
+Configuration uses `$XDG_CONFIG_HOME/ynab-api-cli` or `~/.config/ynab-api-cli`, including Windows. XDG_CONFIG_HOME must be absolute. `auth.json` holds `access_tokens` (or legacy `access_token`); `config.json` holds the optional `plan_id`. Existing unrelated fields are preserved.
 
 `configure` uses hidden input and protects credentials with POSIX mode 600 or a private current-user Windows ACL. It refuses redirected input and existing credentials. `configure --replace` rotates credentials explicitly. Credentials are plaintext: use a private, local directory and exclude it from source control and shared storage.
 
@@ -30,3 +30,11 @@ Configuration uses `$XDG_CONFIG_HOME/ynab-api-cli` or `~/.config/ynab-api-cli`, 
 | Contract or model mismatch | Run compat check and review the supported version |
 
 OAuth refresh and delegated multi-user authentication are outside this release. Each adopter configures a personal token locally.
+
+## Multiple PATs
+
+Run `ynab-api-cli configure --add` in a local terminal to append another hidden PAT; repeat for any number of distinct tokens. `configure --replace` replaces the entire pool with one PAT. Existing single-token auth files remain valid. New configuration stores the ordered pool under `access_tokens` in the same protected auth.json. Never supply tokens in argv, chat, or logs.
+
+Only HTTP 429 advances to the next PAT. Every request tries each available PAT at most once. Authentication, authorization, redirects, network failures, and other errors fail immediately. Cooldowns and the successful cursor last for the process; new invocations start with the first PAT. Online doctor verifies every PAT, so a bad or throttled spare token is reported instead of hidden by another token. Offline doctor never verifies API access.
+
+For fixture-based acceptance tests, use the installed interpreter's `python -m ynab_api_cli.e2e --help`. Explicit seed and mutation suites require --enable-writes, a disposable plan named YNAB API CLI TEST, and persistent private journal storage. Read-only acceptance fails when required seed fixtures are missing. Do not clear an interrupted write journal before reconciling actual server state. CI accepts either a single encrypted YNAB_ACCESS_TOKEN secret or a JSON-array YNAB_ACCESS_TOKENS secret, never both. Never configure remote credentials without the user's authorization.

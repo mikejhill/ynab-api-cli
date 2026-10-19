@@ -49,11 +49,11 @@ class ConfigStore:
         temporary_path = Path(temporary)
         try:
             with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                if secret:
+                    self.security.protect(temporary_path)
                 stream.write(json.dumps(values, indent=2) + "\n")
                 stream.flush()
                 os.fsync(stream.fileno())
-            if secret:
-                self.security.protect(temporary_path)
             if exclusive:
                 os.link(temporary_path, path)
             else:
@@ -63,19 +63,49 @@ class ConfigStore:
         finally:
             temporary_path.unlink(missing_ok=True)
 
-    def configure(self, token: str, *, replace: bool = False) -> None:
-        """Create or explicitly replace protected credentials."""
+    def configure(
+        self, token: str, *, replace: bool = False, add: bool = False
+    ) -> None:
+        """Create, append, or explicitly replace protected credentials."""
         if not token.strip() or any(character.isspace() for character in token.strip()):
             raise AppError("Token must be nonempty and contain no whitespace.")
         Connection(token.strip())
         path = self.root / "auth.json"
-        if path.exists() and not replace:
+        if replace and add:
+            raise AppError("Choose either --add or --replace.")
+        if path.exists() and not (replace or add):
             raise AppError(
-                "Credentials already exist; use configure --replace to rotate."
+                "Credentials already exist; use configure --add or --replace to rotate."
             )
         previous = self.read(path) if path.exists() else {}
-        previous["access_token"] = token.strip()
-        self.write(path, previous, secret=True, exclusive=not replace)
+        tokens = (
+            (*self.credentials(previous).tokens, token.strip())
+            if add and path.exists()
+            else (token.strip(),)
+        )
+        connection = Connection(tokens[0], additional_tokens=tokens[1:])
+        previous.pop("access_token", None)
+        previous["access_tokens"] = list(connection.tokens)
+        self.write(path, previous, secret=True, exclusive=not (replace or add))
+
+    @staticmethod
+    def credentials(
+        values: dict[str, JsonValue], plan: str | None = None
+    ) -> Connection:
+        """Decode legacy single credentials or the ordered multi-PAT format."""
+        if "access_tokens" in values and "access_token" in values:
+            raise AppError("Use access_tokens or legacy access_token, not both.")
+        raw = values.get("access_tokens", [values.get("access_token")])
+        if (
+            not isinstance(raw, list)
+            or not raw
+            or any(not isinstance(item, str) for item in raw)
+        ):
+            raise AppError(
+                "auth.json requires a nonempty access_tokens list or access_token."
+            )
+        tokens = tuple(str(item) for item in raw)
+        return Connection(tokens[0], plan, tokens[1:])
 
     def load(self) -> Connection:
         """Validate permissions, credentials, and optional default plan."""
@@ -83,20 +113,12 @@ class ConfigStore:
         if not path.is_file():
             raise AppError("Missing auth.json; run configure in a local terminal.")
         self.security.validate(path)
-        token = self.read(path).get("access_token")
-        if (
-            not isinstance(token, str)
-            or not token.strip()
-            or any(character.isspace() for character in token)
-        ):
-            raise AppError(
-                "auth.json requires a nonempty access_token without whitespace."
-            )
+        credentials = self.read(path)
         config = self.root / "config.json"
         plan = self.read(config).get("plan_id") if config.exists() else None
         if plan is not None and (not isinstance(plan, str) or not plan):
             raise AppError("config.json plan_id must be a nonempty string.")
-        return Connection(token, plan)
+        return self.credentials(credentials, plan)
 
     def select_plan(self, plan: str) -> None:
         """Store an explicit UUID without overwriting unrelated settings."""

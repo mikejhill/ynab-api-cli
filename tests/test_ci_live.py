@@ -1,166 +1,105 @@
-"""Network-boundary tests for CI confinement, redaction, and credential cleanup."""
+"""CI credential consumption, seeded acceptance, and failure redaction."""
 
 from __future__ import annotations
 
 import json
-import os
-import re
 import tempfile
-from enum import StrEnum
 from pathlib import Path
-from uuid import UUID
+from unittest.mock import Mock
 
-import httpx
 import pytest
-from tests.support import Server
 
 from ynab_api_cli.ci_live import Application
-from ynab_api_cli.contract import Contract
+from ynab_api_cli.e2e import E2eRunner
 from ynab_api_cli.exceptions import AppError
 
 
-class Failure(StrEnum):
-    """Adversarial API outcomes that must not disclose request secrets."""
-
-    NONE = "none"
-    STATUS = "status"
-    MALFORMED = "malformed"
-    NETWORK = "network"
-    UNEXPECTED = "unexpected"
-    PLAN_NAME = "plan-name"
-
-
-class LiveServer:
-    """Serve reviewed response schemas at an observable HTTP boundary."""
-
-    def __init__(self, contract: Contract, *, failure: Failure = Failure.NONE) -> None:
-        self._contract = contract
-        self._failure = failure
-        self.requests: list[httpx.Request] = []
-
-    def handle(self, request: httpx.Request) -> httpx.Response:
-        """Return representative responses or deliberately secret-bearing failures."""
-        self.requests.append(request)
-        secret = request.headers["Authorization"]
-        if self._failure == Failure.STATUS:
-            return httpx.Response(502, json={"detail": secret})
-        if self._failure == Failure.MALFORMED:
-            return httpx.Response(200, text=secret)
-        if self._failure == Failure.NETWORK:
-            raise httpx.ReadTimeout(secret)
-        if self._failure == Failure.UNEXPECTED:
-            raise ValueError(secret)
-        path = request.url.path.removeprefix("/v1")
-        operation = next(
-            item
-            for item in self._contract.operations.values()
-            if item.method == request.method
-            and re.fullmatch(re.sub(r"\{[^}]+\}", "[^/]+", item.path), path)
-        )
-        response = Server(self._contract, operation.identifier).handle(request)
-        if operation.identifier != "getPlanById":
-            return response
-        data = response.json()
-        data["data"]["plan"]["name"] = (
-            "ordinary plan"
-            if self._failure == Failure.PLAN_NAME
-            else "YNAB API CLI TEST synthetic"
-        )
-        return httpx.Response(response.status_code, json=data)
-
-
 class TestApplication:
-    """Exercise real orchestration while replacing only the HTTP boundary."""
+    """Keep CI secrets out of reports, tracebacks, and persistent files."""
 
-    CREDENTIAL = "synthetic-ci-secret-do-not-log"
-    PLAN = str(UUID(int=123))
+    PLAN = "00000000-0000-0000-0000-000000000123"
 
-    def environment(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        """Supply fake step secrets and confine temporary files to the test."""
-        monkeypatch.setenv("YNAB_ACCESS_TOKEN", self.CREDENTIAL)
-        monkeypatch.setenv("YNAB_TEST_PLAN_ID", self.PLAN)
+    @pytest.mark.parametrize("pool", [False, True])
+    def test_explicit_credentials_and_cleanup(
+        self, *, pool: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Both credential formats select required reads without enabling writes."""
         monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
-
-    def test_read_only_scope_and_summary(
-        self,
-        contract: Contract,
-        monkeypatch: pytest.MonkeyPatch,
-        tmp_path: Path,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        """CI submits only selected-plan GETs and exports no private record data."""
-        self.environment(monkeypatch, tmp_path)
-        server = LiveServer(contract)
-        with httpx.Client(transport=httpx.MockTransport(server.handle)) as client:
-            Application.main(client)
-
-        output = capsys.readouterr().out
-        report = json.loads(output)
-        assert report["ok"] is True
-        assert report["mode"] == "read-only"
-        assert report["complete_live_coverage"] is False
-        assert "getPlanById" in report["completed_operations"]
-        assert "getPlans" not in report["completed_operations"]
-        assert "getUser" not in report["completed_operations"]
-        assert all(request.method == "GET" for request in server.requests)
-        assert all(
-            request.url.path.startswith("/v1/plans/" + self.PLAN)
-            for request in server.requests
+        environment = {"YNAB_TEST_PLAN_ID": self.PLAN}
+        environment["YNAB_ACCESS_TOKENS" if pool else "YNAB_ACCESS_TOKEN"] = (
+            json.dumps(["first-fake", "second-fake"]) if pool else "first-fake"
         )
-        assert self.CREDENTIAL not in output
-        assert self.PLAN not in output
-        assert "YNAB_ACCESS_TOKEN" not in os.environ
-        assert "YNAB_TEST_PLAN_ID" not in os.environ
-        assert not list(tmp_path.rglob("auth.json"))
+        run = Mock(return_value={"ok": True, "mode": "reads"})
+        monkeypatch.setattr(E2eRunner, "run", run)
+        assert Application.run(environment) == {"ok": True, "mode": "reads"}
+        assert environment == {}
         assert not list(tmp_path.iterdir())
 
     @pytest.mark.parametrize(
-        "failure", [item for item in Failure if item != Failure.NONE]
-    )
-    def test_failure_redaction_and_cleanup(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-        tmp_path: Path,
-        capsys: pytest.CaptureFixture[str],
-        caplog: pytest.LogCaptureFixture,
-        failure: Failure,
-    ) -> None:
-        """API payloads, nested exception details, and credentials stay out of logs."""
-        self.environment(monkeypatch, tmp_path)
-        server = LiveServer(Contract(), failure=failure)
-        with (
-            httpx.Client(transport=httpx.MockTransport(server.handle)) as client,
-            pytest.raises(SystemExit) as caught,
-        ):
-            Application.main(client)
-
-        captured = capsys.readouterr()
-        assert caught.value.code == 1
-        assert self.CREDENTIAL not in captured.out + captured.err + caplog.text
-        assert self.PLAN not in captured.out + captured.err + caplog.text
-        assert captured.out == ""
-        assert "Live CI probe failed" in caplog.text
-        assert not list(tmp_path.iterdir())
-
-    @pytest.mark.parametrize(
-        ("token", "plan"),
+        "values",
         [
-            ("", PLAN),
-            ("contains whitespace", PLAN),
-            (CREDENTIAL, ""),
-            (CREDENTIAL, "default"),
+            {},
+            {"YNAB_ACCESS_TOKEN": "bad value"},
+            {"YNAB_ACCESS_TOKENS": "[]"},
+            {
+                "YNAB_ACCESS_TOKEN": "first-fake",
+                "YNAB_ACCESS_TOKENS": '["second-fake"]',
+            },
+            {"YNAB_ACCESS_TOKENS": "malformed"},
         ],
     )
-    def test_invalid_settings_prevent_network(
-        self, contract: Contract, token: str, plan: str
+    def test_invalid_settings_no_network(
+        self, values: dict[str, str], monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Missing secrets, invalid headers, and implicit plan aliases fail locally."""
-        environment = {"YNAB_ACCESS_TOKEN": token, "YNAB_TEST_PLAN_ID": plan}
-        server = LiveServer(contract)
-        with (
-            httpx.Client(transport=httpx.MockTransport(server.handle)) as client,
-            pytest.raises((ValueError, AppError)),
-        ):
-            Application.run(environment, client)
-        assert environment == {}
-        assert server.requests == []
+        """Invalid and ambiguous credentials fail before creating an E2E runner."""
+        values["YNAB_TEST_PLAN_ID"] = self.PLAN
+        run = Mock()
+        monkeypatch.setattr(E2eRunner, "run", run)
+        with pytest.raises((AppError, ValueError)):
+            Application.run(values)
+        run.assert_not_called()
+        assert values == {}
+
+    @pytest.mark.parametrize(
+        "error",
+        [AppError("secret-body"), ValueError("secret-body"), KeyboardInterrupt()],
+    )
+    def test_top_boundary_redaction(
+        self,
+        error: BaseException,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Unexpected failures never emit credential-bearing traceback chains."""
+        monkeypatch.setattr(Application, "run", Mock(side_effect=error))
+        with pytest.raises(SystemExit) as caught:
+            Application.main()
+        assert caught.value.code == (130 if isinstance(error, KeyboardInterrupt) else 1)
+        output = capsys.readouterr()
+        assert "secret-body" not in output.out + output.err + caplog.text
+
+    def test_success_summary(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Successful CI emits the sanitized acceptance report."""
+        monkeypatch.setattr(Application, "run", Mock(return_value={"ok": True}))
+        Application.main()
+        assert json.loads(capsys.readouterr().out) == {"ok": True}
+
+    def test_individual_github_masks(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Register each JSON-array credential with the runner's masking protocol."""
+        monkeypatch.setattr(E2eRunner, "run", Mock(return_value={"ok": True}))
+        Application.run(
+            {
+                "GITHUB_ACTIONS": "true",
+                "YNAB_TEST_PLAN_ID": self.PLAN,
+                "YNAB_ACCESS_TOKENS": '["first-fake", "second%fake"]',
+            }
+        )
+        assert (
+            capsys.readouterr().out
+            == "::add-mask::first-fake\n::add-mask::second%25fake\n"
+        )

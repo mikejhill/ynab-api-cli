@@ -28,6 +28,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "coverage>=7.16.2",
     "hypothesis>=6.169.0",
     "openapi-python-client==0.29.0",
     "poethepoet>=0.48.0",
@@ -127,6 +128,7 @@ exclude_also = ["if __name__ == .__main__.:"]
 [tool.poe.tasks]
 distribution-check = { cmd = "python -m ynab_api_cli.distribution" }
 live = { cmd = "python -m ynab_api_cli.live" }
+e2e = { cmd = "python -m ynab_api_cli.e2e" }
 generate = { cmd = "python -m ynab_api_cli.development generate" }
 codegen-check = { cmd = "python -m ynab_api_cli.development codegen-check" }
 contract-check = { cmd = "python -m ynab_api_cli.verification contract-check" }
@@ -138,8 +140,9 @@ lint = { cmd = "ruff check .", help = "Lint code" }
 lint-fix = { cmd = "ruff check . --fix", help = "Lint and auto-fix" }
 typecheck = { cmd = "ty check", help = "Type check (strict)" }
 test = { cmd = "pytest --cov", help = "Run tests with coverage" }
+branch-check = { cmd = "python -m ynab_api_cli.branch_coverage", help = "Require at least 90% authored branch coverage" }
 fix = { sequence = ["format", "lint-fix"], help = "Auto-fix formatting and lint" }
-check = { sequence = ["format-check", "lint", "typecheck", "test"], help = "Run every quality gate" }
+check = { sequence = ["format-check", "lint", "typecheck", "test", "branch-check"], help = "Run every quality gate" }
 
 [tool.ynab_api_cli.codegen]
 package_name_override = "generated"

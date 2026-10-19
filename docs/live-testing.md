@@ -1,5 +1,7 @@
 # Isolated live testing
 
+For new setups, use [fixture-based CLI acceptance](e2e.md). It provides persistent seed fixtures, exact semantic assertions, real CLI subprocesses, multi-PAT support, and safer whole-run recovery guards. The legacy runner below remains available for compatibility and broader endpoint smoke checks.
+
 Live testing is excluded from default pytest and scheduled CI. Every endpoint is tested offline; a live run reports its actual completed operations and capability gaps separately.
 
 1. Create a disposable YNAB plan manually. Its name must begin `YNAB API CLI TEST`; the API does not create plans.
