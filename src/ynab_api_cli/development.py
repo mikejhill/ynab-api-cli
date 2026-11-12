@@ -178,7 +178,7 @@ class Development:
         text = re.sub(r"from ynab_api_cli.generated.types import .*\n", "", text)
         text = text.replace("from enum import Enum", "from enum import StrEnum")
         text = re.sub(
-            r"class (\w+)\(str, Enum\):",
+            r"class (\w+)\((?:str, Enum|StrEnum)\):",
             r'class \1(StrEnum):\n    """Generated contract enumeration."""',
             text,
         )
