@@ -16,9 +16,9 @@ if TYPE_CHECKING:
 {% endif %}
 
 class {{ model.class_info.name }}(BaseModel):
-    """Typed {{ model.class_info.name }} contract representation."""
+    """Typed {{ model.class_info.name | safe_for_docstring }} contract representation."""
     model_config = ConfigDict(extra="{{ 'allow' if model.additional_properties else 'forbid' }}", arbitrary_types_allowed=True, populate_by_name=True)
-{% if model.additional_properties and model.additional_properties != True and model.additional_properties.get_type_string() != "Any" %}
+{% if model.additional_properties and model.additional_properties != True and (model.additional_properties.get_type_string() | as_unembedded_code) != "Any" %}
     @model_validator(mode="before")
     @classmethod
     def validate_extra_values(cls, value: object) -> object:
@@ -27,14 +27,14 @@ class {{ model.class_info.name }}(BaseModel):
             return value
         declared = {field.alias or name for name, field in cls.model_fields.items()}
         extra = {str(key): item for key, item in value.items() if str(key) not in declared}
-        TypeAdapter[dict[str, {{ model.additional_properties.get_type_string() }}]](dict[str, {{ model.additional_properties.get_type_string() }}]).validate_python(extra)
+        TypeAdapter[dict[str, {{ model.additional_properties.get_type_string() | as_unembedded_code }}]](dict[str, {{ model.additional_properties.get_type_string() | as_unembedded_code }}]).validate_python(extra)
         return value
 
     @property
-    def additional_properties(self) -> dict[str, {{ model.additional_properties.get_type_string() }}]:
+    def additional_properties(self) -> dict[str, {{ model.additional_properties.get_type_string() | as_unembedded_code }}]:
         """Return additional entries through a validated typed boundary."""
-        return TypeAdapter[dict[str, {{ model.additional_properties.get_type_string() }}]](dict[str, {{ model.additional_properties.get_type_string() }}]).validate_python(self.model_extra or {})
+        return TypeAdapter[dict[str, {{ model.additional_properties.get_type_string() | as_unembedded_code }}]](dict[str, {{ model.additional_properties.get_type_string() | as_unembedded_code }}]).validate_python(self.model_extra or {})
 {% endif %}
 {% for property in model.required_properties + model.optional_properties %}
-    {{ property.python_name }}: {{ property.get_type_string() }} = Field(alias="{{ property.name }}"{% if not property.required %}, default=UNSET{% elif property.default is not none %}, default={{ property.default }}{% endif %})
+    {{ property.python_name }}: {{ property.get_type_string() | as_unembedded_code }} = Field(alias="{{ property.name | in_double_quote_literal }}"{% if not property.required %}, default=UNSET{% elif property.default is not none %}, default={{ property.default.python_code | as_unembedded_code }}{% endif %})
 {% endfor %}

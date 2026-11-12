@@ -6,7 +6,7 @@ Verified on Windows with Python 3.12.13 on 2026-10-11.
 | --- | --- |
 | Reviewed API surface | All 44 operations across 10 groups |
 | Reviewed schema witnesses | All 911 manifest entries exercised |
-| Generated client | Pinned openapi-python-client 0.29.0; reproducible generation |
+| Generated client | Pinned openapi-python-client 0.29.1; reproducible generation |
 | Formatting, linting, and typing | Ruff and ty pass; every ty rule is an error |
 | Unit and contract tests | 147 tests pass; combined statement-and-branch coverage exceeds 96% |
 | codegen-check | Pass |

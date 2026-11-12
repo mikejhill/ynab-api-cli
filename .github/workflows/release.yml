@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.resolve.outputs.tag }}
-      sha: ${{ steps.resolve.outputs.sha }}
+      revision: ${{ steps.resolve.outputs.revision }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -72,14 +72,14 @@ jobs:
           sha=$(git rev-parse --verify "refs/tags/$TAG^{commit}")
           git merge-base --is-ancestor "$sha" origin/main
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "revision=$sha" >> "$GITHUB_OUTPUT"
 
   ci:
     needs: target
     if: always() && needs.target.result == 'success'
     uses: ./.github/workflows/ci.yml
     with:
-      ref: ${{ needs.target.outputs.sha }}
+      ref: ${{ needs.target.outputs.revision }}
     permissions:
       contents: read
 
@@ -91,7 +91,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.target.outputs.sha }}
+          ref: ${{ needs.target.outputs.revision }}
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - run: uv sync --locked
       - name: Version must match tag
@@ -146,7 +146,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.target.outputs.tag }}
-          SHA: ${{ needs.target.outputs.sha }}
+          SHA: ${{ needs.target.outputs.revision }}
         run: |
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --target "$SHA" --title "$TAG" --generate-notes

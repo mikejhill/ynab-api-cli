@@ -72,7 +72,7 @@ class TestDevelopment:
         Development(tmp_path).initialize()
         record = json.loads((directory / "provenance.json").read_text(encoding="utf-8"))
         assert record["operation_count"] == 44
-        assert record["generator_version"] == "0.29.0"
+        assert record["generator_version"] == "0.29.1"
         assert record["spec_sha256"]
 
     @pytest.mark.parametrize("command", ["generate", "codegen-check", "initialize"])
